@@ -7,6 +7,8 @@ use rand::Rng;
 use std::time::Duration;
 use State::{Reading, Writing};
 
+const N:usize = 5
+
 #[derive(Eq, PartialEq)]
 enum State {
     Reading,
@@ -85,16 +87,16 @@ impl<K: Hash + Eq + PartialEq + Clone + Display, V: Clone + Display> Joiner<K, V
 }
 
 fn main() {
-    let barrier = Arc::new(Joiner::new(3));
+    let barrier = Arc::new(Joiner::new(N));
 
     let mut vt = Vec::new();
 
-    for i in 0..3 {
+    for i in 0..N {
         vt.push(std::thread::spawn(
             {
                 let b = barrier.clone();
                 move || {
-                    for _ in 0..3 {
+                    for _ in 0..5 {
                         let rng: u64 = rand::thread_rng().gen_range(3..10);
                         sleep(Duration::from_secs(rng));
 
