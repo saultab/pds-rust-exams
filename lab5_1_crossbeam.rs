@@ -6,6 +6,24 @@ use crossbeam::channel;
 use rand::Rng;
 use std::time::{Duration, Instant};
 
+/*
+            STEP #1 -> Scheduler send to all Workers
+        ┌──────────────────────────────────────────────┐
+        │ Rx channel to receive ptr of Function()      │
+        └──────────────────────────────────────────────┘
+
+        STEP #2 -> Scheduler send on shared channel with ALL WORKER the jobs and after it end...
+
+                  Scheme of channel SHARED to send JOB
+                             ┌───> W
+                             │
+        Scheduler ───> .....─┼───> W
+                             │
+                             └───> W
+
+        STEP #3 -> Workers take a job if there
+
+*/
 static NUMBER_OF_WORKERS: usize = 3;
 
 struct Worker {
