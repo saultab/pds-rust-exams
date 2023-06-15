@@ -1,0 +1,94 @@
+use std::collections::HashMap;
+use std::fmt::Display;
+use std::hash::Hash;
+use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::thread::sleep;
+use std::time::Duration;
+use State::{Reading, Waiting};
+use rand::Rng;
+
+#[derive(PartialEq)]
+enum State {
+    Reading,
+    Waiting,
+}
+
+struct Joiner<K, V> {
+    n: usize,
+    map: RwLock<HashMap<K, V>>,
+    state: Mutex<(State, usize)>,
+    cv: Condvar,
+}
+
+impl<K: Hash + Eq + Clone + Display, V: Clone> Joiner<K, V> {
+    fn new(n: usize) -> Arc<Self> {
+        Arc::new(
+            Joiner {
+                n: n,
+                map: RwLock::new(HashMap::new()),
+                state: Mutex::new((Reading, 0)),
+                cv: Condvar::new(),
+            }
+        )
+    }
+
+    fn supply(&self, k: K, v: V) -> HashMap<K, V> {
+        println!("{k} parte...");
+
+        let mut lock = self.state.lock().unwrap();
+        lock = self.cv.wait_while(lock, |l| (*l).0 == Waiting).unwrap();
+
+        let mut map_lock = self.map.write().unwrap();
+        (*map_lock).insert(k.clone(), v);
+        drop(map_lock);
+
+        (*lock).1 += 1;
+        println!("{k} scrive...");
+
+        if (*lock).1 == self.n {
+            println!("{k} è l'ultimo e setta lo stato in Waiting...");
+            (*lock).0 = Waiting;
+            self.cv.notify_all();
+        }
+
+        lock = self.cv.wait_while(lock, |l| (*l).0 == Reading).unwrap();
+
+        let ret = (*self.map.read().unwrap()).clone();
+
+        (*lock).1 -= 1;
+        if (*lock).1 == 0 {
+            map_lock = self.map.write().unwrap();
+            (*map_lock).clear();
+            (*lock).0 = Reading;
+            self.cv.notify_all();
+        }
+        ret
+    }
+}
+
+fn main() {
+    let barrier = Joiner::new(5);
+
+    let mut vt = Vec::new();
+
+    for i in 0..5 {
+        vt.push(std::thread::spawn(
+            {
+                let b = barrier.clone();
+                move || {
+                    for _ in 0..5 {
+                        let rng = rand::thread_rng().gen_range(3..4);
+                        sleep(Duration::from_secs(rng));
+
+                        let map = b.supply(i, rng);
+                        println!("\nMappa ritornata dal Thread #{i}\n{:?}\n", map);
+                    }
+                }
+            }
+        ));
+    }
+
+    for t in vt {
+        t.join().unwrap();
+    }
+}
