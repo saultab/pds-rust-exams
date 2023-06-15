@@ -1,78 +1,75 @@
-use std::fmt::Display;
 use std::sync::{Arc, Condvar, Mutex};
+use std::{panic, thread};
+use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::thread::sleep;
 use std::time::Duration;
+use rand::Rng;
 
-static N: usize = 3;
+const N_THREADS : usize = 10;
 
 struct ExecutionLimiter {
-    limit_value: Mutex<usize>,
-    cv: Condvar,
+    limit: usize,
+    counter: Mutex<usize>,
+    cv: Condvar
 }
 
-impl ExecutionLimiter {
-    fn new() -> Self {
-        return ExecutionLimiter { limit_value: Mutex::new(0), cv: Default::default() };
+impl ExecutionLimiter{
+    fn new(n: usize) -> Arc<Self> {
+        return Arc::new(ExecutionLimiter{
+            limit: n,
+            counter: Mutex::new(0),
+            cv: Condvar::new()
+        })
     }
 
-    fn execute<R : Display>(&self, func: impl FnOnce(R) -> R, param: R) -> R {
-        let mut limit = self.limit_value.lock().unwrap();
-
-        //metodo 0 per attendere cv
-        //limit = cvar.wait_while(limit, *limit == N).unwrap();
-
-        //metodo 1 per attendere cv
-        while *limit == N-1 {
-            println!("> In attesa...");
-            limit = self.cv.wait(limit).unwrap();
-        }
-
-        // altrimenti
-        // *(self.limitValue.lock().unwrap()) += 1;
-
-        *limit += 1;
-        println!("> Limite incrementato a {}", *limit);
-        drop(limit);
-
-        let ret = func(param);
-
-        let mut limit = self.limit_value.lock().unwrap();
-        *limit -= 1;
-        println!("> Limite de-crementato a {}", *limit);
-        drop(limit);
-
+    fn execute<R: Default >(&self, f: impl Fn() -> R + UnwindSafe ) -> R {
+        let mut lock = self.counter.lock().unwrap();
+        lock = self.cv.wait_while(lock, |l|{ *l == self.limit}).unwrap();
+        (*lock) += 1;
+        println!("Starting processing with lock = {}", *lock);
+        drop(lock);
+        let r = panic::catch_unwind(f);
+        let mut lock = self.counter.lock().unwrap();
+        (*lock) -= 1;
+        println!("Releasing lock... lock = {}", *lock);
+        drop(lock);
         self.cv.notify_one();
-        println!("> Fatto!\n");
-        ret
+        return match r {
+            Ok(r) => {r}
+            Err(_) => {
+                println!("panic caught!");
+                R::default()
+            }
+        }
     }
 }
 
-pub fn f<R : Display>(i: R) -> R {
-    println!("----------> print {i} funzione f");
-    sleep(Duration::from_secs(5));
-    i
+
+fn very_slow_print() -> () {
+    let time = rand::thread_rng().gen_range(5..10);
+    if time > 8 {   //40% chance of panicking
+        println!("PANICKING ='0 ....");
+        panic!("oh shush")
+    }
+    sleep(Duration::from_secs(time));
 }
 
 fn main() {
-    let limiter = Arc::new( ExecutionLimiter::new());
-    let mut vt = Vec::new();
+    let execution_limiter = ExecutionLimiter::new(3);
 
-    for i in 0..5 {
-        vt.push(std::thread::spawn({
-            let l = limiter.clone();
-            move || {
-                loop {
-                    println!("> thread #{i} entra");
-                    l.execute(f, i);
-                    println!("> thread #{i} esce");
-                    sleep(Duration::from_secs(10));
-                }
+    let mut vec_handles = vec![];
+
+    for i in 0..N_THREADS {
+        vec_handles.push(thread::spawn({
+            let execution_limiter = execution_limiter.clone();
+            move||{
+                execution_limiter.execute( very_slow_print);
             }
-        }
-        ));
+        }))
     }
 
-    for t in vt {
-        t.join().unwrap();
+    for h in vec_handles {
+        h.join().unwrap();
     }
+
 }
