@@ -9,6 +9,11 @@ potrebbe fallire, in tale caso, si preveda di decrementare il conteggio corretta
 garantendo tutte le funzionalità richieste.use std::sync::{Arc, Condvar, Mutex};
 */
 
+/*
+COMMENTO ALLA SOLUZIONE:
+Attenzione: eseguendo il programma saranno riscontrati dei PANIC: essi sono scatenati tramite la macro panic! nella funzione very_slow_print e sono intenzionali, e aderenti alle richieste
+*/
+
 use std::sync::{Arc, Condvar, Mutex};
 use std::{panic, thread};
 use std::fmt::{Display, Formatter};
@@ -18,6 +23,7 @@ use std::time::Duration;
 use rand::Rng;
 
 const N_THREADS : usize = 10;
+const PANIC_CHANCE : f32 = 0.4;
 
 struct ExecutionLimiter{
     limit: usize,
@@ -72,7 +78,7 @@ impl Display for ExecutionError{
 
 fn very_slow_print() -> i32 {
     let time = rand::thread_rng().gen_range(5..10);
-    if time > 8 {   //40% chance of panicking
+    if time > 5 + ((5 as f32)*PANIC_CHANCE) as u64  {   //40% chance of panicking
         println!("PANICKING....");
         panic!("oh shush");
     }
@@ -90,8 +96,8 @@ fn main() {
             let execution_limiter = execution_limiter.clone();
             move||{
                // println!("Executing thread {}", i);
-                let res = execution_limiter.execute(i, very_slow_print);
-                /*match res {
+                let _res = execution_limiter.execute(i, very_slow_print);
+                /*match _res {
                     Ok(v) => {println!("Thread {} ended with status {}", i, v)},
                     Err(e) => {println!("Thread {}: {}",i, e)},
                 }*/
