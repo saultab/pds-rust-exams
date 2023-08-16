@@ -1,6 +1,6 @@
 # Contributing to pds-rust-exams
 
-Thank you for considering contributing to Project Name! The following guidelines will help you understand how you can effectively contribute to the project. We appreciate all types of contributions, from bug reports to bug fixes, from new features to documentation improvements.
+Thank you for considering contributing to pds-rust-exams! The following guidelines will help you understand how you can effectively contribute to the project. We appreciate all types of contributions, from bug reports to bug fixes, from new features to documentation improvements.
 
 ## Bug Reporting
 
