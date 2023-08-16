@@ -5,8 +5,7 @@ l’oggetto passato come parametro dal thread opposto.
 */
 
 use std::fmt::Debug;
-use std::sync::{Arc, Mutex};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, Condvar, Mutex};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
@@ -14,50 +13,43 @@ use rand::{Rng};
 
 const N_THREADS : usize = 10;
 
-enum State {
-    First,
-    Second
-}
 
 struct Exchanger<T : Debug> {
-    channel1: Mutex<(Sender<T>, Receiver<T>)>,
-    channel2: Mutex<(Sender<T>, Receiver<T>)>,
-    state: Mutex<State>
+    values: Mutex<(Option<T>, Option<T>)>,
+    cv: Condvar,
 }
 
 impl<T : Debug> Exchanger<T>{
 
     fn new() -> Arc<Self> {
-        let (s1, r1) = channel();
-        let (s2, r2) = channel();
         return Arc::new(Exchanger{
-            channel1 : Mutex::new((s1,r2)),
-            channel2 : Mutex::new((s2,r1)),
-            state: Mutex::new(State::First)
+            values : Mutex::new((None,None)),
+            cv: Condvar::new()
         })
     }
 
     fn exchange(&self, value: T) -> T{
-        let mut lock_state = self.state.lock().unwrap();
-        let lock;
+        let value_to_return;
+        let mut lock = self.values.lock().unwrap();
+        lock = self.cv.wait_while(lock, |l| { (*l).1.is_some() }).unwrap();
 
-         match *lock_state {
-            State::First => {
-                lock = self.channel1.lock().unwrap();
-                *lock_state = State::Second;
-            }
-            State::Second => {
-                lock = self.channel2.lock().unwrap();
-                *lock_state = State::First;
-            }
+        if (*lock).0.is_none() {
+            println!("{:?} is first", value);
+            (*lock).0 = Some(value);
+            self.cv.notify_one();
+            lock = self.cv.wait_while(lock, |l| { (*l).1.is_none() }).unwrap();
+            value_to_return = (*lock).1.take().unwrap();    //take replaces the value inside the option with "None"
+            self.cv.notify_one();
+        } else {
+            println!("{:?} is second", value);
+            (*lock).1 = Some(value);
+            value_to_return = (*lock).0.take().unwrap();
+            self.cv.notify_all();
         }
-        drop(lock_state);
 
-        (*lock).0.send(value).unwrap();
-        return (*lock).1.recv().unwrap();
+        return value_to_return;
     }
 }
-
 fn main() {
     println!("\nwarning: some prints might be out of order\n");
     let exchanger = Exchanger::new();
@@ -75,10 +67,11 @@ fn main() {
                     let v = e.exchange(i);
                     println!("> thread {} got value {}", i, v);
                 }
-        }))
+            }))
     }
 
     for h in vec_join {
         h.join().unwrap();
     }
 }
+
