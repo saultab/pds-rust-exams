@@ -10,8 +10,6 @@ In addition there are undated .rs files related to exams that required writing c
 
 ## Authors
 
-Contributors names and contact info
-
 With love ❤ from MatteoGuarna, FrankDal, saultab 
 
 ## License
