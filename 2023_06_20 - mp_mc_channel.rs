@@ -43,7 +43,7 @@ enum ChannelState {
 }
 
 struct MpMcChannel<E: Send> {
-    c_buffer: Mutex<(ChannelState, Vec<E>)>,
+    c_buffer: Mutex<(ChannelState, Vec<E>)>, //only issue is linear access time to extract order element (all must be shifted): use VecDeque<E> for improved performance
     buffer_size: usize,
     cv: Condvar,
 }
