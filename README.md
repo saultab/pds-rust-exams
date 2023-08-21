@@ -1,6 +1,6 @@
 # Pds rust exams
 
-The purpose of this repository is to collect all the exam topics of the os programming part.
+The purpose of this repository is to collect all the exam topics of the API programming part, for the course held by prof. Giovanni Malnati at Politecnico di Torino.
 
 ## Description
 
