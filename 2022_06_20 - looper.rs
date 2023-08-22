@@ -54,7 +54,7 @@ impl<Message: Send + Debug + 'static> Looper<Message>{
     }
 
     fn send(&self, msg: Message){
-        //i didn't find any smarted way to prevent the bottleneck
+        //i didn't find any smarter way to prevent the bottleneck
         let mut lock = self.sender_to_master.lock().unwrap();
         let sender = (*lock).take().unwrap();
         sender.send(msg).unwrap();
