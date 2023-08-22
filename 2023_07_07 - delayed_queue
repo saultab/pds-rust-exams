@@ -23,7 +23,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 use rand::Rng;
 
-const N_THREADS : usize = 20;
+const N_THREADS : usize = 24;
 
 #[derive(PartialEq,Clone,Copy, Debug)]
 enum TimeComparison {
