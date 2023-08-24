@@ -4,9 +4,13 @@ The purpose of this repository is to collect all the exam topics of the API prog
 
 ## Description
 
-The .rs files named with a date relate to the corresponding exam session and the exam track is contained within with a comment.
+ALL EXAM TRACKS ARE CONTAINED WITHIN IN A BLOCK COMMENT
+All tracks are solved and COME WITH A FUNCTIONING MAIN to let you execute them for your understanding: in the actual exam the main() function is not required. 
 
-In addition there are undated .rs files related to exams that required writing code in C++ that were written in Rust anyway with the trace inside.
+The .rs files named with a date relate to the corresponding exam session.
+In addition there are undated .rs files which are from to old exams that required writing code in C++, of course updated to the Rust language.
+
+Some solutions are print and/or comment heavy, we hope that might be useful for your understanding
 
 ## Authors
 
