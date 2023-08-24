@@ -5,6 +5,7 @@ The purpose of this repository is to collect all the exam topics of the API prog
 ## Description
 
 ALL EXAM TRACKS ARE CONTAINED WITHIN IN A BLOCK COMMENT
+
 All tracks are solved and COME WITH A FUNCTIONING MAIN to let you execute them for your understanding: in the actual exam the main() function is not required. 
 
 The .rs files named with a date relate to the corresponding exam session.
