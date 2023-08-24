@@ -16,7 +16,7 @@ invocato wait() otterrà 1 come valore di ritorno, il secondo thread 2, e così 
 Si implementi la struttura dati RankingBarrier a scelta nei linguaggi Rust o C++ '11 o successivi.
 */
 
-use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex};
 
 const N: usize = 5;
 
@@ -27,7 +27,7 @@ enum State {
 }
 
 struct RankingBarrier {
-    n_threads: RwLock<usize>,
+    n_threads: usize, //no need to protect here because it is wrapped inside an Arc and is never written
     counter: Mutex<(usize,State)>,
     cv: Condvar,
 }
@@ -42,7 +42,7 @@ impl RankingBarrier {
                 Ok(
                     Arc::new(
                         RankingBarrier{
-                            n_threads: RwLock::new(n_threads),
+                            n_threads,
                             counter: Mutex::new((0, State::Progress)),
                             cv: Condvar::new(),
                         }
@@ -52,14 +52,12 @@ impl RankingBarrier {
         }
     }
 
-    pub fn wait(&self) -> usize {
+    pub fn wait(&self, thread_index : usize /*only added for clarity*/) -> usize {
         let mut lock = self.counter.lock().unwrap();
-        //self.cv.wait_while( lock, |a| { (*a).1 > 0 } );
 
-        while (*lock).1 == State::Progress && (*lock).0 > 0 {
-            lock = self.cv.wait(lock).unwrap();
-        }
+        lock = self.cv.wait_while(lock, |l| {(*l).1 == State::Progress && (*l).0 > 0}).unwrap();
 
+        //arrives here only if state is progress and counter is 0 (everybody out)
         if (*lock).1 == State::Progress {
             (*lock).1 = State::Closure;
             println!();
@@ -69,9 +67,9 @@ impl RankingBarrier {
 
         let ret = (*lock).0;
 
-        println!("Thread comes {}th", ret);
+        println!("Thread {thread_index} comes {}th", ret);
 
-        while (*lock).0 != *self.n_threads.read().unwrap() && (*lock).1 == State::Closure {
+        while (*lock).0 != self.n_threads && (*lock).1 == State::Closure {
             lock = self.cv.wait(lock).unwrap();
         }
 
@@ -83,7 +81,7 @@ impl RankingBarrier {
 
         (*lock).0 -= 1;
 
-        println!("Thread returning {}", ret);
+        println!("Thread {thread_index} returning {}", ret);
         return ret;
     }
 }
@@ -93,12 +91,12 @@ fn main(){
     let c_barrier = RankingBarrier::new(N).expect("At least 2 threads are required for the barrier to work properly");
     let mut vt = Vec::new();
 
-    for _ in 0..N{
+    for i in 0..N{
         vt.push(std::thread::spawn({
             let c = c_barrier.clone();
             move || {
                 for _ in 0..3 {
-                    c.wait();
+                    c.wait(i);
                 }
             }
         }
