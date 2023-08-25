@@ -35,29 +35,28 @@ use std::time::Duration;
 use rand::Rng;
 
 struct Dispatcher<Msg: Clone> {
-    sender: Mutex<Vec<Sender<Msg>>>,
+    senders_vec: Mutex<Vec<Sender<Msg>>>,
 }
 
 impl<Msg: Clone> Dispatcher<Msg> {
     fn new() -> Dispatcher<Msg> {
         Dispatcher {
-            sender: Mutex::new(vec![]),
+            senders_vec: Mutex::new(vec![]),
         }
     }
 
     fn subscribe(&self) -> Subscription<Msg> {
         let (tx, rx) = channel();
-        let mut lock = self.sender.lock().unwrap();
+        let mut lock = self.senders_vec.lock().unwrap();
         (*lock).push(tx);
         Subscription::new(rx)
     }
 
     fn dispatch(&self, msg: Msg) {
-        let lock = self.sender.lock().unwrap();
+        let lock = self.senders_vec.lock().unwrap();
 
-        for i in 0..(*lock).len() {
-            let tx = (*lock).get(i).unwrap();
-            let _ = tx.send(msg.clone()); //ritorna errore se la subscription del receiver associato è stata droppata, quindi non fare unwrap
+        for sender in lock.iter() {
+            let _ = sender.send(msg.clone()); //ritorna errore se la subscription del receiver associato è stata droppata, quindi non fare unwrap altrimenti panica
         }
     }
 }
@@ -77,9 +76,7 @@ struct Subscription<Msg> {
 
 impl<Msg: Clone> Subscription<Msg> {
     fn new(rx: Receiver<Msg>) -> Self {
-        Subscription {
-            sub: rx,
-        }
+        Subscription { sub: rx }
     }
 
     fn read(&self) -> Option<Msg> {
