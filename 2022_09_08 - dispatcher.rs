@@ -53,16 +53,12 @@ impl<Msg: Clone> Dispatcher<Msg> {
     }
 
     fn dispatch(&self, msg: Msg) {
-        let mut lock = self.sender.lock().unwrap();
-        let mut new_vec = vec![];
+        let lock = self.sender.lock().unwrap();
 
-        for _ in 0..(*lock).len() {
-            let tx = (*lock).pop().unwrap();
-            new_vec.push(tx.clone());
+        for i in 0..(*lock).len() {
+            let tx = (*lock).get(i).unwrap();
             let _ = tx.send(msg.clone()); //ritorna errore se la subscription del receiver associato è stata droppata, quindi non fare unwrap
         }
-
-        (*lock) = new_vec;
     }
 }
 
