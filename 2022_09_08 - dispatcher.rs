@@ -28,7 +28,7 @@ Si implementino le strutture dati Dispatcher e Subscription, a scelta, nel lingu
 */
 
 use std::sync::mpsc::{channel, Receiver, Sender};
-use std::sync::{Mutex};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::thread::sleep;
 use std::time::Duration;
@@ -104,18 +104,25 @@ impl<Msg> Drop for Subscription<Msg> {
 }
 
 fn main() {
-    let dispatcher = Dispatcher::new();
+    let dispatcher = Arc::new(Dispatcher::new());
 
     let mut handles = vec![];
 
     for i in 0..10 {
         handles.push(thread::spawn(
             {
-                //affinché il dispatcher possa venire distrutto, non si può copiare il riferimento (non si può mettere il dispatcher dentro un Arc)
-                //così invece, se il dispatcher viene distrutto, le read() in attesa ritornano None
-                let sub = dispatcher.subscribe();
-                println!("thread {} subscribed!", i);
+                //clono il riferimento al dispatcher in modo da poterlo chiamare da più threads
+                let d = dispatcher.clone();
                 move || {
+                    let time = rand::thread_rng().gen_range(0..5);
+                    sleep(Duration::from_secs(time));
+                    let sub = d.subscribe();
+                    //il dispatcher è multiple-producer e può essere utilizzato da più threads insieme
+                    d.dispatch("from thread ".to_string() + i.to_string().as_str());
+                    //è ESSENZIALE effettuare la drop del riferimento prima di fare la read()
+                    // infatti dispatcher rimane in vita finché esiste almeno un riferimento ad esso
+                    // e se il thread possiede un riferimento mentre fa la read richia di mandarsi da solo in deadlock
+                    std::mem::drop(d);
                     loop {
                         let time = rand::thread_rng().gen_range(10..100);
                         sleep(Duration::from_millis(time)); //helps print to remain mostly in-order
@@ -143,11 +150,11 @@ fn main() {
         println!("> Dispatching value {i}");
         let time = rand::thread_rng().gen_range(2..4);
         sleep(Duration::from_secs(time));
-        dispatcher.dispatch(i);
+        dispatcher.dispatch(i.to_string() + " from main");
     }
 
-    //il dispatcher rimane in possesso del thread che l'ha creato (in questo caso il main)
-    //mentre la subsciption è mossa nel thread in cui è utilizzata
+    //il main possiede un riferimento al dispatcher che deve essere eliminato (insieme a tutti gli altri)
+    // per poter permettere alle read() in attesa di ritornare, una volta che non si vogliono più inviare messaggi
     drop(dispatcher);
 
 
